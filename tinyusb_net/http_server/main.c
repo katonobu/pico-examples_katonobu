@@ -111,3 +111,5 @@ int main(void)
   }
   return 0;
 }
+
+// wget -q -O - 192.168.7.1 | diff index.html -
