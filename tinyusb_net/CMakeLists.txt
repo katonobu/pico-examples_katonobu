@@ -42,6 +42,7 @@ if (EXISTS ${PICO_TINYUSB_PATH}/${TINYUSB_TEST_PATH})
 
         target_sources(tinyusb_net PUBLIC
                 ${CMAKE_CURRENT_LIST_DIR}/main.c
+                ${CMAKE_CURRENT_LIST_DIR}/tinyusb_net_lwip.c
                 ${CMAKE_CURRENT_LIST_DIR}/usb_descriptors.c
                 )
 

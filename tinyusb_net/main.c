@@ -50,19 +50,12 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "dnserver.h"
 #include "lwip/init.h"
 #include "lwip/timeouts.h"
+#include "lwip/ip4_addr.h"
 #include "httpd.h"
 #include "pico/stdlib.h"
 
-/* lwip context */
-static struct netif netif_data;
-
-/* shared between tud_network_recv_cb() and service_traffic() */
-static struct pbuf *received_frame;
-
-/* this is used by this code, ./class/net/net_driver.c, and usb_descriptors.c */
-/* ideally speaking, this should be generated from the hardware's unique ID (if available) */
-/* it is suggested that the first byte is 0x02 to indicate a link-local address */
-const uint8_t tud_network_mac_address[6] = {0x02,0x02,0x84,0x6A,0x96,0x00};
+void tinyusb_net_init(const ip_addr_t* ipaddr, const ip_addr_t* netmask, const ip_addr_t* gateway, const dhcp_config_t *dhcp_config);
+void tinyusb_net_lwip_transfer(void);
 
 /* network parameters of this MCU */
 static const ip_addr_t ipaddr  = IPADDR4_INIT_BYTES(192, 168, 7, 1);
@@ -87,164 +80,27 @@ static const dhcp_config_t dhcp_config =
     TU_ARRAY_SIZE(entries),                    /* num entry */
     entries                                    /* entries */
 };
-static err_t linkoutput_fn(struct netif *netif, struct pbuf *p)
-{
-  (void)netif;
-
-  for (;;)
-  {
-    /* if TinyUSB isn't ready, we must signal back to lwip that there is nothing we can do */
-    if (!tud_ready())
-      return ERR_USE;
-
-    /* if the network driver can accept another packet, we make it happen */
-    if (tud_network_can_xmit(p->tot_len))
-    {
-      tud_network_xmit(p, 0 /* unused for this example */);
-      return ERR_OK;
-    }
-
-    /* transfer execution to TinyUSB in the hopes that it will finish transmitting the prior packet */
-    tud_task();
-  }
-}
-
-static err_t output_fn(struct netif *netif, struct pbuf *p, const ip_addr_t *addr)
-{
-  return etharp_output(netif, p, addr);
-}
-
-static err_t netif_init_cb(struct netif *netif)
-{
-  LWIP_ASSERT("netif != NULL", (netif != NULL));
-  netif->mtu = CFG_TUD_NET_MTU;
-  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP | NETIF_FLAG_UP;
-  netif->state = NULL;
-  netif->name[0] = 'E';
-  netif->name[1] = 'X';
-  netif->linkoutput = linkoutput_fn;
-  netif->output = output_fn;
-  return ERR_OK;
-}
-
-static void init_lwip(void)
-{
-  struct netif *netif = &netif_data;
-
-  lwip_init();
-
-  /* the lwip virtual MAC address must be different from the host's; to ensure this, we toggle the LSbit */
-  netif->hwaddr_len = sizeof(tud_network_mac_address);
-  memcpy(netif->hwaddr, tud_network_mac_address, sizeof(tud_network_mac_address));
-  netif->hwaddr[5] ^= 0x01;
-
-  netif = netif_add(netif, &ipaddr, &netmask, &gateway, NULL, netif_init_cb, ip_input);
-  netif_set_default(netif);
-}
-
-/* handle any DNS requests from dns-server */
-bool dns_query_proc(const char *name, ip_addr_t *addr)
-{
-  if (0 == strcmp(name, "tiny.usb"))
-  {
-    *addr = ipaddr;
-    return true;
-  }
-  return false;
-}
-
-bool tud_network_recv_cb(const uint8_t *src, uint16_t size)
-{
-  /* this shouldn't happen, but if we get another packet before 
-  parsing the previous, we must signal our inability to accept it */
-  if (received_frame) return false;
-
-  if (size)
-  {
-    struct pbuf *p = pbuf_alloc(PBUF_RAW, size, PBUF_POOL);
-
-    if (p)
-    {
-      /* pbuf_alloc() has already initialized struct; all we need to do is copy the data */
-      memcpy(p->payload, src, size);
-
-      /* store away the pointer for service_traffic() to later handle */
-      received_frame = p;
-    }
-  }
-
-  return true;
-}
-
-uint16_t tud_network_xmit_cb(uint8_t *dst, void *ref, uint16_t arg)
-{
-  struct pbuf *p = (struct pbuf *)ref;
-
-  (void)arg; /* unused for this example */
-
-  return pbuf_copy_partial(p, dst, p->tot_len, 0);
-}
-
-static void service_traffic(void)
-{
-  /* handle any packet received by tud_network_recv_cb() */
-  if (received_frame)
-  {
-    ethernet_input(received_frame, &netif_data);
-    pbuf_free(received_frame);
-    received_frame = NULL;
-    tud_network_recv_renew();
-  }
-
-  sys_check_timeouts();
-}
-
-void tud_network_init_cb(void)
-{
-  /* if the network is re-initializing and we have a leftover packet, we must do a cleanup */
-  if (received_frame)
-  {
-    pbuf_free(received_frame);
-    received_frame = NULL;
-  }
-}
 
 int main(void)
 {
-  /* initialize TinyUSB */
+  volatile uint32_t loop_count = 0;
+
   stdio_init_all();
+
   printf("tinyusb_net start.\n");
   printf("this is build at %s %s\n",__DATE__, __TIME__);
-  tusb_init();
-  printf("tusb_init() done\n");
 
-  /* initialize lwip, dhcp-server, dns-server, and http */
-  init_lwip();
-  printf("init_lwip() done\n");
-  volatile uint32_t loop_count = 0;
-  while (!netif_is_up(&netif_data)){
-    loop_count++;
-  }
-  printf("netif_is_up() done, count = %d\n", loop_count);
-  loop_count = 0;
-  while (dhserv_init(&dhcp_config) != ERR_OK){
-    loop_count++;
-  }
-  printf("dhserv_init() done, count = %d\n", loop_count);
-  loop_count = 0;
-  while (dnserv_init(&ipaddr, 53, dns_query_proc) != ERR_OK){
-    loop_count++;
-  }
-  printf("dnserv_init() done, count = %d\n", loop_count);
+  printf("IP:%d.%d.%d.%d\n", ip4_addr1_val(ipaddr), ip4_addr2_val(ipaddr), ip4_addr3_val(ipaddr), ip4_addr4_val(ipaddr));
+
+  tinyusb_net_init(&ipaddr, &netmask, &gateway, &dhcp_config);
+
   httpd_init();
-  printf("httpd_init() done\n");
 
   loop_count = 0;
   const uint32_t dot_count = 100 * 1000;
   while (1)
   {
-    tud_task();
-    service_traffic();
+    tinyusb_net_lwip_transfer();
     if ((loop_count % dot_count) == 0){
       printf(".");
     }
@@ -253,22 +109,5 @@ int main(void)
       printf(".\n");
     }
   }
-
   return 0;
-}
-
-/* lwip has provision for using a mutex, when applicable */
-sys_prot_t sys_arch_protect(void)
-{
-  return 0;
-}
-void sys_arch_unprotect(sys_prot_t pval)
-{
-  (void)pval;
-}
-
-/* lwip needs a millisecond time source, and the TinyUSB board support code has one available */
-uint32_t sys_now(void)
-{
-  return board_millis();
 }
