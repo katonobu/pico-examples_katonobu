@@ -51,6 +51,7 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "lwip/init.h"
 #include "lwip/timeouts.h"
 #include "httpd.h"
+#include "pico/stdlib.h"
 
 /* lwip context */
 static struct netif netif_data;
@@ -211,20 +212,46 @@ void tud_network_init_cb(void)
 int main(void)
 {
   /* initialize TinyUSB */
-  board_init();
+  stdio_init_all();
+  printf("tinyusb_net start.\n");
+  printf("this is build at %s %s\n",__DATE__, __TIME__);
   tusb_init();
+  printf("tusb_init() done\n");
 
   /* initialize lwip, dhcp-server, dns-server, and http */
   init_lwip();
-  while (!netif_is_up(&netif_data));
-  while (dhserv_init(&dhcp_config) != ERR_OK);
-  while (dnserv_init(&ipaddr, 53, dns_query_proc) != ERR_OK);
+  printf("init_lwip() done\n");
+  volatile uint32_t loop_count = 0;
+  while (!netif_is_up(&netif_data)){
+    loop_count++;
+  }
+  printf("netif_is_up() done, count = %d\n", loop_count);
+  loop_count = 0;
+  while (dhserv_init(&dhcp_config) != ERR_OK){
+    loop_count++;
+  }
+  printf("dhserv_init() done, count = %d\n", loop_count);
+  loop_count = 0;
+  while (dnserv_init(&ipaddr, 53, dns_query_proc) != ERR_OK){
+    loop_count++;
+  }
+  printf("dnserv_init() done, count = %d\n", loop_count);
   httpd_init();
+  printf("httpd_init() done\n");
 
+  loop_count = 0;
+  const uint32_t dot_count = 100 * 1000;
   while (1)
   {
     tud_task();
     service_traffic();
+    if ((loop_count % dot_count) == 0){
+      printf(".");
+    }
+    if (40 * dot_count < ++loop_count) {
+      loop_count = 0;
+      printf(".\n");
+    }
   }
 
   return 0;
