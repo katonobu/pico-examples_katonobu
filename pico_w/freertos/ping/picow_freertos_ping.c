@@ -23,6 +23,8 @@
 //static ip_addr_t mqtt_ip = IPADDR4_INIT_BYTES(34,77,13,55);
 static ip_addr_t mqtt_ip = IPADDR4_INIT_BYTES(172,16,82,232);
 static mqtt_client_t* mqtt_client;
+static unsigned char msg_buff[256];
+
 
 enum mqtt_stt_t {
     STT_AFTER_RESET,
@@ -62,9 +64,9 @@ static void update_mqtt_stt(enum mqtt_stt_t stt) {
     if (stt < STT_MQTT_CONNECTED) {
         user_info.led_interval = 50;
     } else if (stt == STT_MQTT_CONNECTED) {
-        user_info.led_interval = 200;
+        user_info.led_interval = 500;
     } else {
-        user_info.led_interval = 1000;
+        user_info.led_interval = 2000;
     }
 }
 
@@ -72,10 +74,11 @@ static void
 mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
   const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
-  LWIP_UNUSED_ARG(data);
-
   LWIP_PLATFORM_DIAG(("MQTT client \"%s\" data cb: len %d, flags %d\n", client_info->client_id,
           (int)len, (int)flags));
+  memcpy(msg_buff, data, len);
+  msg_buff[len] = '\0';
+  LWIP_PLATFORM_DIAG(("Rx:%s\n",msg_buff));
 }
 
 static void
@@ -106,28 +109,12 @@ mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t st
   if (status == MQTT_CONNECT_ACCEPTED) {
     update_mqtt_stt(STT_MQTT_CONNECTED);
     mqtt_subscribe(client, "hello", 1, mqtt_request_cb, LWIP_CONST_CAST(void*, client_info));
+    mqtt_publish(client, "hello", "01234567", 8, 1, 0, NULL, NULL);
   } else {
     update_mqtt_stt(STT_MQTT_DISCONNECTED);
     mqtt_unsubscribe(client, "hello", mqtt_request_cb, LWIP_CONST_CAST(void*, client_info));
   }
 }
-
-void
-mqtt_example_init(void)
-{
-    mqtt_client = mqtt_client_new();
-
-    mqtt_set_inpub_callback(mqtt_client,
-        mqtt_incoming_publish_cb,
-        mqtt_incoming_data_cb,
-        LWIP_CONST_CAST(void*, &mqtt_client_info));
-
-    mqtt_client_connect(mqtt_client,
-        &mqtt_ip, MQTT_PORT,
-        mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info),
-        &mqtt_client_info);
-}
-
 
 void main_task(__unused void *params) {
     update_mqtt_stt(STT_NET_CONNECTING);
@@ -145,23 +132,56 @@ void main_task(__unused void *params) {
     }
     update_mqtt_stt(STT_MQTT_CONNECTING);
 
-    mqtt_example_init();
+    mqtt_client = mqtt_client_new();
 
-    user_info.led_interval = 100;
-    while(true) {
-        // not much to do as LED is in another task, and we're using RAW (callback) lwIP API
-        vTaskDelay(user_info.led_interval);
-        user_info.led_stt = !user_info.led_stt;
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, user_info.led_stt);
+    mqtt_set_inpub_callback(mqtt_client,
+        mqtt_incoming_publish_cb,
+        mqtt_incoming_data_cb,
+        LWIP_CONST_CAST(void*, &mqtt_client_info));
 
+    mqtt_client_connect(mqtt_client,
+        &mqtt_ip, MQTT_PORT,
+        mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info),
+        &mqtt_client_info);
+
+    uint32_t running_count = 0;
+    uint32_t wait_sec = 60;
+    while(running_count < 10 * wait_sec) {
+        vTaskDelay(100);
+        running_count++;
     }
+    printf("%d sec has passed\n", wait_sec);
 
+    mqtt_disconnect(mqtt_client);
+    printf("MQTT disconnect\n");
+    update_mqtt_stt(STT_MQTT_DISCONNECTED);
     cyw43_arch_deinit();
+    printf("cyw43_arch_deinit\n");
+    printf("------------------------------------\n");
+    while(1){
+        vTaskDelay(100);
+    }
+}
+
+void led_task(__unused void *params) {
+    printf("LED Task started\n");
+    user_info.led_interval = 50;
+    while(true) {
+        vTaskDelay(user_info.led_interval);
+        if (1 < user_info.led_interval) {
+            user_info.led_stt = !user_info.led_stt;
+        } else {
+            user_info.led_stt = false;
+        }
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, user_info.led_stt);
+    }
 }
 
 void vLaunch( void) {
-    TaskHandle_t task;
-    xTaskCreate(main_task, "TestMainThread", configMINIMAL_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &task);
+    TaskHandle_t main_task_handle;
+    TaskHandle_t led_task_handle;
+    xTaskCreate(main_task, "TestMainThread", configMINIMAL_STACK_SIZE, NULL, TEST_TASK_PRIORITY, &main_task_handle);
+    xTaskCreate(led_task, "LedThread", configMINIMAL_STACK_SIZE, NULL, TEST_TASK_PRIORITY+1, &led_task_handle);
 
 #if NO_SYS && configUSE_CORE_AFFINITY && configNUM_CORES > 1
     // we must bind the main task to one core (well at least while the init is called)
