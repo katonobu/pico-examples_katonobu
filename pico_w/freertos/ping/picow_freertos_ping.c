@@ -223,7 +223,6 @@ void main_task(__unused void *params) {
     }
 
 
-    ping_init_with_blocking(&ping_ip, 10);
 //    ping_init_with_blocking(&mqtt_ip, 10);
 
     update_mqtt_stt(STT_MQTT_CONNECTING);
