@@ -11,7 +11,10 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "lwip/dns.h"
 #include "lwip/apps/mqtt.h"
+#include "lwip/apps/http_client.h"
+#include "ping.h"
 
 #ifndef RUN_FREERTOS_ON_CORE
 #define RUN_FREERTOS_ON_CORE 0
@@ -19,12 +22,11 @@
 
 #define TEST_TASK_PRIORITY				( tskIDLE_PRIORITY + 1UL )
 
-
+static ip_addr_t ping_ip = IPADDR4_INIT_BYTES(142,251,35,196); // pin test ip
 //static ip_addr_t mqtt_ip = IPADDR4_INIT_BYTES(34,77,13,55);
 static ip_addr_t mqtt_ip = IPADDR4_INIT_BYTES(172,16,82,232);
 static mqtt_client_t* mqtt_client;
 static unsigned char msg_buff[256];
-
 
 enum mqtt_stt_t {
     STT_AFTER_RESET,
@@ -116,6 +118,61 @@ mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t st
   }
 }
 
+static err_t headers_done_fn(httpc_state_t *connection, void *arg,
+                             struct pbuf *hdr, u16_t hdr_len, u32_t content_len)
+{
+    printf("in headers_done_fn\n");
+    return ERR_OK;
+}
+
+static void result_fn(void *arg, httpc_result_t httpc_result, u32_t rx_content_len, u32_t srv_res, err_t err)
+{
+    printf(">>> result_fn >>>\n");
+    printf("httpc_result: %s\n",
+             httpc_result == HTTPC_RESULT_OK              ? "HTTPC_RESULT_OK"
+           : httpc_result == HTTPC_RESULT_ERR_UNKNOWN     ? "HTTPC_RESULT_ERR_UNKNOWN"
+           : httpc_result == HTTPC_RESULT_ERR_CONNECT     ? "HTTPC_RESULT_ERR_CONNECT"
+           : httpc_result == HTTPC_RESULT_ERR_HOSTNAME    ? "HTTPC_RESULT_ERR_HOSTNAME"
+           : httpc_result == HTTPC_RESULT_ERR_CLOSED      ? "HTTPC_RESULT_ERR_CLOSED"
+           : httpc_result == HTTPC_RESULT_ERR_TIMEOUT     ? "HTTPC_RESULT_ERR_TIMEOUT"
+           : httpc_result == HTTPC_RESULT_ERR_SVR_RESP    ? "HTTPC_RESULT_ERR_SVR_RESP"
+           : httpc_result == HTTPC_RESULT_ERR_MEM         ? "HTTPC_RESULT_ERR_MEM"
+           : httpc_result == HTTPC_RESULT_LOCAL_ABORT     ? "HTTPC_RESULT_LOCAL_ABORT"
+           : httpc_result == HTTPC_RESULT_ERR_CONTENT_LEN ? "HTTPC_RESULT_ERR_CONTENT_LEN"
+           : "*UNKNOWN*");
+    printf("received %ld bytes\n", rx_content_len);
+    printf("server response: %ld\n", srv_res);
+    printf("err: %d\n", err);
+    printf("<<< result_fn <<<\n");
+}
+
+static err_t recv_fn(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
+    bool * http_done_p = (bool *)arg;
+    printf(">>> recv_fn >>>\n");
+    if (p == NULL) {
+        printf("p is NULL\n");
+    } else {
+        printf("p: %p\n", p);
+        printf("next: %p\n", p->next);
+        printf("payload: %p\n", p->payload);
+        printf("len: %d\n", p->len);
+    }
+    printf("<<< recv_fn <<<\n");
+    *http_done_p = true;
+    return ERR_OK;
+}
+
+static void dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg) {
+    bool *dns_resolved_p = (bool *)arg;
+    if (ipaddr) {
+        printf("address %s\n", ip4addr_ntoa(ipaddr));
+    } else {
+        printf("dns request failed\n");
+    }
+    *dns_resolved_p = true;
+}
+
 void main_task(__unused void *params) {
     update_mqtt_stt(STT_NET_CONNECTING);
     if (cyw43_arch_init()) {
@@ -130,6 +187,45 @@ void main_task(__unused void *params) {
     } else {
         printf("Connected.\n");
     }
+
+    ////////////////// DNS address resolve 
+    cyw43_arch_lwip_begin();
+    ip_addr_t dns_ip_address;
+    bool dns_resolved = false;
+    int dns_err = dns_gethostbyname("public.cloud.shiftr.io", &dns_ip_address, dns_found, &dns_resolved);
+    cyw43_arch_lwip_end();
+    printf("return of dns_gethostbyname = %d\n", dns_err);
+    if (dns_err == ERR_OK) {
+        printf("ntp address %s\n", ip4addr_ntoa(&dns_ip_address));
+    }
+    printf("Waiting for DNS resolve\n");
+    while (!dns_resolved) {
+        vTaskDelay(10);
+    }
+
+    ////////////////// http get
+    httpc_connection_t settings = {
+            .use_proxy = 0,
+            .headers_done_fn = headers_done_fn,
+            .result_fn = result_fn
+    };
+    httpc_state_t *connection = NULL;
+    bool http_done = false;
+
+    cyw43_arch_lwip_begin();
+    err_t err = httpc_get_file_dns("neverssl.com", HTTP_DEFAULT_PORT, "/", &settings, recv_fn, &http_done, &connection);
+    cyw43_arch_lwip_end();
+    printf("err = %d\n", err);
+
+    printf("Waiting for http request done\n");
+    while (!http_done) {
+        vTaskDelay(10);
+    }
+
+
+    ping_init_with_blocking(&ping_ip, 10);
+//    ping_init_with_blocking(&mqtt_ip, 10);
+
     update_mqtt_stt(STT_MQTT_CONNECTING);
 
     mqtt_client = mqtt_client_new();
@@ -139,10 +235,12 @@ void main_task(__unused void *params) {
         mqtt_incoming_data_cb,
         LWIP_CONST_CAST(void*, &mqtt_client_info));
 
+    cyw43_arch_lwip_begin();
     mqtt_client_connect(mqtt_client,
         &mqtt_ip, MQTT_PORT,
         mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info),
         &mqtt_client_info);
+    cyw43_arch_lwip_end();
 
     uint32_t running_count = 0;
     uint32_t wait_sec = 60;
