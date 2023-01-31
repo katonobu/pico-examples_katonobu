@@ -5,4 +5,6 @@ else()
 
     add_subdirectory(iperf)
     add_subdirectory(ping)
+    add_subdirectory(mqtt)
+    add_subdirectory(httpc)
 endif()
