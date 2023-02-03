@@ -53,6 +53,7 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "lwip/ip4_addr.h"
 #include "httpd.h"
 #include "pico/stdlib.h"
+#include "pico/bootrom.h"
 
 void tinyusb_net_init(const ip_addr_t* ipaddr, const ip_addr_t* netmask, const ip_addr_t* gateway, const dhcp_config_t *dhcp_config);
 void tinyusb_net_lwip_transfer(void);
@@ -107,9 +108,13 @@ int main(void)
     if (40 * dot_count < ++loop_count) {
       loop_count = 0;
       printf(".\n");
+      break;
     }
   }
+  printf("------------------------------------\n");
+  printf("reboot...\n");
+  reset_usb_boot(0,0);
+  while(1);
   return 0;
 }
-
 // wget -q -O - 192.168.7.1 | diff index.html -
