@@ -83,9 +83,10 @@ App|Description
 [mma8451_i2c](i2c/mma8451_i2c) | Read acceleration from a MMA8451 accelerometer and set range and precision for the data.
 [mpl3115a2_i2c](i2c/mpl3115a2_i2c) | Interface with an MPL3115A2 altimeter, exploring interrupts and advanced board features, via I2C.
 [mpu6050_i2c](i2c/mpu6050_i2c) | Read acceleration and angular rate values from a MPU6050 accelerometer/gyro, attached to an I2C bus.
-[oled_i2c](i2c/oled_i2c) | Convert and display a bitmap on a 128x32 SSD1306-driven OLED display
+[ssd1306_i2c](i2c/ssd1306_i2c) | Convert and display a bitmap on a 128x32 or 128x64 SSD1306-driven OLED display
 [pa1010d_i2c](i2c/pa1010d_i2c) | Read GPS location data, parse and display data via I2C.
 [pcf8523_i2c](i2c/pcf8523_i2c) | Read time and date values from a real time clock. Set current time and alarms on it.
+[ht16k33_i2c](i2c/ht16k33_i2c) | Drive a 4 digit 14 segment LED with an HT16K33.
 
 ### Interpolator
 
@@ -110,7 +111,7 @@ App|Description
 
 ### Pico W Networking
 
-These eaxmples are for the Pico W, and are only available for `PICO_BOARD=pico_w`
+These examples are for the Pico W, and are only available for `PICO_BOARD=pico_w`
 
 App|Description
 ---|---
@@ -120,7 +121,9 @@ App|Description
 [picow_ntp_client](pico_w/ntp_client)| Connects to an NTP server to fetch and display the current time.
 [picow_tcp_client](pico_w/tcp_client)| A simple TCP client. You can run [python_test_tcp_server.py](pico_w/python_test_tcp/python_test_tcp_server.py) for it to connect to.
 [picow_tcp_server](pico_w/tcp_server)| A simple TCP server. You can use [python_test_tcp_client.py](pico_w/python_test_tcp/python_test_tcp_client.py) to connect to it.
+[picow_tls_client](pico_w/tls_client)| Demonstrates how to make a HTTPS request using TLS.
 [picow_wifi_scan](pico_w/wifi_scan)| Scans for WiFi networks and prints the results.
+[picow_udp_beacon](pico_w/udp_beacon)| A simple UDP transmitter.
 
 #### FreeRTOS examples
 
