@@ -14,6 +14,7 @@ target_link_libraries(picow_tls_client_background
         pico_lwip_mbedtls
         pico_mbedtls
         pico_stdlib
+        pico_bootrom
         )
 pico_add_extra_outputs(picow_tls_client_background)
 
@@ -33,6 +34,7 @@ target_link_libraries(picow_tls_client_poll
         pico_lwip_mbedtls
         pico_mbedtls
         pico_stdlib
+        pico_bootrom
         )
 pico_add_extra_outputs(picow_tls_client_poll)
 

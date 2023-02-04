@@ -9,6 +9,7 @@
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/bootrom.h"
 #include "lwip/pbuf.h"
 #include "lwip/altcp_tcp.h"
 #include "lwip/altcp_tls.h"
@@ -216,6 +217,8 @@ void run_tls_client_test(void) {
     }
     free(state);
     altcp_tls_free_config(tls_config);
+    printf("reboot...\n");
+    reset_usb_boot(0,0);
 }
 
 int main() {
