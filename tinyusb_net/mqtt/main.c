@@ -51,7 +51,6 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "lwip/init.h"
 #include "lwip/timeouts.h"
 #include "lwip/ip4_addr.h"
-//#include "lwip/apps/httpd.h"
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 

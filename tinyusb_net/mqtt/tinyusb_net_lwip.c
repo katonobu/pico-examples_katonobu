@@ -30,7 +30,6 @@
 #include "lwip/timeouts.h"
 
 /* IP configuration */
-static const dhcp_config_t *dhcp_config_p;
 static const ip_addr_t* ipaddr_p;
 static const ip_addr_t* netmask_p;
 static const ip_addr_t* gateway_p;

@@ -43,13 +43,14 @@ if (EXISTS ${PICO_TINYUSB_PATH}/${TINYUSB_TEST_PATH})
         target_sources(mqtt PUBLIC
                 ${CMAKE_CURRENT_LIST_DIR}/main.c
                 ${CMAKE_CURRENT_LIST_DIR}/tinyusb_net_lwip.c
-                ${CMAKE_CURRENT_LIST_DIR}/usb_descriptors.c
-                ${CMAKE_CURRENT_LIST_DIR}/rndis_reports.c
+                ${CMAKE_CURRENT_LIST_DIR}/../tinyusb_net/usb_descriptors.c
+                ${CMAKE_CURRENT_LIST_DIR}/../tinyusb_net/rndis_reports.c
                 )
 
         # Make sure TinyUSB can find tusb_config.h
         target_include_directories(mqtt PUBLIC
                 ${CMAKE_CURRENT_LIST_DIR}
+                ${CMAKE_CURRENT_LIST_DIR}/../tinyusb_net/
                 ${PICO_TINYUSB_PATH}/lib/networking
                 )
         target_sources(mqtt PUBLIC
