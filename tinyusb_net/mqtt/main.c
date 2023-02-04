@@ -51,64 +51,18 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "lwip/init.h"
 #include "lwip/timeouts.h"
 #include "lwip/ip4_addr.h"
-#include "lwip/apps/httpd.h"
+//#include "lwip/apps/httpd.h"
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 
-void tinyusb_net_init(const ip_addr_t* ipaddr, const ip_addr_t* netmask, const ip_addr_t* gateway, const dhcp_config_t *dhcp_config);
+void tinyusb_net_init(const ip_addr_t* ipaddr, const ip_addr_t* netmask, const ip_addr_t* gateway);
 void tinyusb_net_lwip_transfer(void);
 
 /* network parameters of this MCU */
 static const ip_addr_t ipaddr  = IPADDR4_INIT_BYTES(192, 168, 7, 1);
 static const ip_addr_t netmask = IPADDR4_INIT_BYTES(255, 255, 255, 0);
 static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
-static bool terminate_req = false;
 
-/* database IP addresses that can be offered to the host; this must be in RAM to store assigned MAC addresses */
-static dhcp_entry_t entries[] =
-{
-    /* mac ip address                          lease time */
-    { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 2), 24 * 60 * 60 },
-    { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 3), 24 * 60 * 60 },
-    { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 4), 24 * 60 * 60 },
-};
-
-static const dhcp_config_t dhcp_config =
-{
-    .router = IPADDR4_INIT_BYTES(0, 0, 0, 0),  /* router address (if any) */
-    .port = 67,                                /* listen port */
-    .dns = IPADDR4_INIT_BYTES(192, 168, 7, 1), /* dns server (if any) */
-    "usb",                                     /* dns suffix */
-    TU_ARRAY_SIZE(entries),                    /* num entry */
-    entries                                    /* entries */
-};
-
-// httpd_post_finished()
-//httpd_post_receive_data()
-//httpd_post_begin()
-
-err_t
-httpd_post_begin(void *connection, const char *uri, const char *http_request,
-                 u16_t http_request_len, int content_len, char *response_uri,
-                 u16_t response_uri_len, u8_t *post_auto_wnd)
-{
-  printf("\nhttpd_post_begin()\n");
-  return ERR_OK;
-}
-
-err_t
-httpd_post_receive_data(void *connection, struct pbuf *p)
-{
-  printf("httpd_post_receive_data()\n");
-  return ERR_OK;
-}
-
-void
-httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len)
-{
-  printf("httpd_post_finished()\n");
-  terminate_req = true;
-}
 
 int main(void)
 {
@@ -116,18 +70,16 @@ int main(void)
 
   stdio_init_all();
 
-  printf("tinyusb_net-httpd start.\n");
+  printf("tinyusb_net-mqtt start.\n");
   printf("this is build at %s %s\n",__DATE__, __TIME__);
 
   printf("IP:%d.%d.%d.%d\n", ip4_addr1_val(ipaddr), ip4_addr2_val(ipaddr), ip4_addr3_val(ipaddr), ip4_addr4_val(ipaddr));
 
-  tinyusb_net_init(&ipaddr, &netmask, &gateway, &dhcp_config);
-
-  httpd_init();
+  tinyusb_net_init(&ipaddr, &netmask, &gateway);
 
   loop_count = 0;
   const uint32_t dot_count = 100 * 1000;
-  while (terminate_req == false)
+  while (1)
   {
     tinyusb_net_lwip_transfer();
     if ((loop_count % dot_count) == 0){
