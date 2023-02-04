@@ -62,6 +62,7 @@ void tinyusb_net_lwip_transfer(void);
 static const ip_addr_t ipaddr  = IPADDR4_INIT_BYTES(192, 168, 7, 1);
 static const ip_addr_t netmask = IPADDR4_INIT_BYTES(255, 255, 255, 0);
 static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
+static bool terminate_req = false;
 
 /* database IP addresses that can be offered to the host; this must be in RAM to store assigned MAC addresses */
 static dhcp_entry_t entries[] =
@@ -82,6 +83,33 @@ static const dhcp_config_t dhcp_config =
     entries                                    /* entries */
 };
 
+// httpd_post_finished()
+//httpd_post_receive_data()
+//httpd_post_begin()
+
+err_t
+httpd_post_begin(void *connection, const char *uri, const char *http_request,
+                 u16_t http_request_len, int content_len, char *response_uri,
+                 u16_t response_uri_len, u8_t *post_auto_wnd)
+{
+  printf("\nhttpd_post_begin()\n");
+  return ERR_OK;
+}
+
+err_t
+httpd_post_receive_data(void *connection, struct pbuf *p)
+{
+  printf("httpd_post_receive_data()\n");
+  return ERR_OK;
+}
+
+void
+httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len)
+{
+  printf("httpd_post_finished()\n");
+  terminate_req = true;
+}
+
 int main(void)
 {
   volatile uint32_t loop_count = 0;
@@ -99,7 +127,7 @@ int main(void)
 
   loop_count = 0;
   const uint32_t dot_count = 100 * 1000;
-  while (1)
+  while (terminate_req == false)
   {
     tinyusb_net_lwip_transfer();
     if ((loop_count % dot_count) == 0){
