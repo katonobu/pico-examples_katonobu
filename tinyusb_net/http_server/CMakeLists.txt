@@ -45,6 +45,7 @@ if (EXISTS ${PICO_TINYUSB_PATH}/${TINYUSB_TEST_PATH})
                 ${CMAKE_CURRENT_LIST_DIR}/tinyusb_net_lwip.c
                 ${CMAKE_CURRENT_LIST_DIR}/usb_descriptors.c
                 ${CMAKE_CURRENT_LIST_DIR}/dhserver.c
+                ${CMAKE_CURRENT_LIST_DIR}/rndis_reports.c
                 )
 
         # Make sure TinyUSB can find tusb_config.h
@@ -89,7 +90,6 @@ if (EXISTS ${PICO_TINYUSB_PATH}/${TINYUSB_TEST_PATH})
                 ${PICO_LWIP_PATH}/src/apps/http/httpd.c
                 ${PICO_LWIP_PATH}/src/apps/http/fs.c
                 ${PICO_TINYUSB_PATH}/lib/networking/dnserver.c
-                ${PICO_TINYUSB_PATH}/lib/networking/rndis_reports.c
                 )
 
         # In addition to pico_stdlib required for common PicoSDK functionality, add dependency on tinyusb_device
