@@ -57,4 +57,10 @@
 
 #define LWIP_SINGLE_NETIF               1
 
+#define LWIP_NETIF_STATUS_CALLBACK      1
+#define LWIP_NETIF_REMOVE_CALLBACK      1
+#define LWIP_NETIF_LINK_CALLBACK        1
+
+#define LWIP_NETIF_HOSTNAME             1
+
 #endif /* __LWIPOPTS_H__ */
