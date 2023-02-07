@@ -20,47 +20,58 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#define DHCP_S
+
 #include "bsp/board.h"
 #include "tusb.h"
-
+#ifdef DHCP_S
 #include "dhserver.h"
 #include "dnserver.h"
+#endif
 #include "lwip/init.h"
 #include "lwip/timeouts.h"
 #include "lwip/netif.h"
+#include "lwip/dns.h"
 #include "tinyusb_net_lwip.h"
 
 /* network parameters of this MCU */
 static const ip_addr_t ipaddr  = IPADDR4_INIT_BYTES(192, 168, 7, 1);
 static const ip_addr_t netmask = IPADDR4_INIT_BYTES(255, 255, 255, 0);
 static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
+static const ip_addr_t dns_address = IPADDR4_INIT_BYTES(8, 8, 8, 8);
+
+#ifdef DHCP_S
+ip_addr_t * get_used_entry(void);
 
 /* database IP addresses that can be offered to the host; this must be in RAM to store assigned MAC addresses */
 static dhcp_entry_t entries[] =
 {
     /* mac ip address                          lease time */
     { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 2), 24 * 60 * 60 },
-    { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 3), 24 * 60 * 60 },
-    { {0}, IPADDR4_INIT_BYTES(192, 168, 7, 4), 24 * 60 * 60 },
 };
 
 static const dhcp_config_t dhcp_config_local = {
     .router = IPADDR4_INIT_BYTES(0, 0, 0, 0),  /* router address (if any) */
     .port = 67,                                /* listen port */
-    .dns = IPADDR4_INIT_BYTES(192, 168, 7, 1), /* dns server (if any) */
+    .dns = dns_address,                        /* dns server (if any) */
     "usb",                                     /* dns suffix */
     TU_ARRAY_SIZE(entries),                    /* num entry */
     entries                                    /* entries */
 };
+#endif
 
 typedef struct tinyusb_net_lwip{
   struct netif netif;
+#ifdef DHCP_S
   const dhcp_config_t *dhcp_config_p;
+#endif
 } tinyusb_net_lwip_t;
 
 tinyusb_net_lwip_t tinyusb_state = {
   .netif = {},
+#ifdef DHCP_S
   .dhcp_config_p = &dhcp_config_local
+#endif
 };
 
 /* shared between tud_network_recv_cb() and service_traffic() */
@@ -81,20 +92,6 @@ static void lwip_status_callback(struct netif *netif);
 static void lwip_link_callback(struct netif *netif);
 static void lwip_remove_callback(struct netif *netif);
 static bool dns_query_proc(const char *name, ip_addr_t *addr);
-
-void tinyusb_net_lwip_transfer(void)
-{
-  tud_task();
-  /* handle any packet received by tud_network_recv_cb() */
-  if (received_frame)
-  {
-    ethernet_input(received_frame, &tinyusb_state.netif);
-    pbuf_free(received_frame);
-    received_frame = NULL;
-    tud_network_recv_renew();
-  }
-  sys_check_timeouts();
-}
 
 /////////////////////////////////////////////////////
 // -------------- arch 
@@ -153,7 +150,7 @@ static void tinyusb_tcpip_init(tinyusb_net_lwip_t * self) {
     netif->name[0] = 'E';
     netif->name[1] = 'X';
     netif_add(netif, &ipaddr, &netmask, &gateway, &tinyusb_state, tinyusb_netif_init, ip_input);
-    netif_set_hostname(netif, "RZPP");
+    netif_set_hostname(netif, "PICO");
 
     netif_set_default(netif);
     netif_set_up(netif);
@@ -162,17 +159,23 @@ static void tinyusb_tcpip_init(tinyusb_net_lwip_t * self) {
     netif_set_remove_callback(netif, lwip_remove_callback);
     netif_set_link_callback(netif, lwip_link_callback);
 
-#ifdef DHCPC
+#ifdef DHCP_C
     self->dhcp_config = &dhcp_config;
-    dns_setserver(0, &dnsaddr);
     dhcp_set_struct(netif, &self->dhcp_client);
     dhcp_start(netif);
-#else
+#endif
+#ifdef DHCP_S
     err_t ret_val = ERR_OK;
     ret_val = dhserv_init(self->dhcp_config_p);
     if (ret_val == ERR_OK){
       ret_val = dnserv_init(&ipaddr, 53, dns_query_proc);
-      if (ret_val != ERR_OK){
+      if (ret_val == ERR_OK){
+        while (get_used_entry() == NULL){
+          tinyusb_net_lwip_transfer();
+          sleep_ms(1);
+        }
+        dns_setserver(0, &dns_address);
+      } else {
         printf("dnsserver init fail\n");
       }
     } else {
@@ -182,10 +185,24 @@ static void tinyusb_tcpip_init(tinyusb_net_lwip_t * self) {
 }
 
 static void tinyusb_tcpip_deinit(tinyusb_net_lwip_t * self){
-#ifdef DHCPC
+#ifdef DHCP_C
     struct netif *netif = &self->netif;
     dhcp_stop(netif);
 #endif
+}
+
+void tinyusb_net_lwip_transfer(void)
+{
+  tud_task();
+  /* handle any packet received by tud_network_recv_cb() */
+  if (received_frame)
+  {
+    ethernet_input(received_frame, &tinyusb_state.netif);
+    pbuf_free(received_frame);
+    received_frame = NULL;
+    tud_network_recv_renew();
+  }
+  sys_check_timeouts();
 }
 
 /////////////////////////////////////////////////////
@@ -244,7 +261,6 @@ static void lwip_link_callback(struct netif *netif) {
   if (netif->flags == 0x0F) {
     ip4_addr_debug_print(LWIP_DBG_ON,&netif->ip_addr);
   }
-  printf("\n");
 }
 
 static void lwip_remove_callback(struct netif *netif) {

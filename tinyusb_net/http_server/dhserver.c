@@ -145,6 +145,15 @@ static __inline void free_entry(dhcp_entry_t *entry)
 	memset(entry->mac, 0, 6);
 }
 
+ip_addr_t * get_used_entry(void) {
+	int i;
+	for (i = 0; i < config->num_entry; i++)
+		if (!is_vacant(config->entries + i)){
+			return &((config->entries + i)->addr);
+		}
+	return NULL;
+}
+
 uint8_t *find_dhcp_option(uint8_t *attrs, int size, uint8_t attr)
 {
 	int i = 0;

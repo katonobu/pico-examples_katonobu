@@ -1,3 +1,4 @@
+#include <arch/cc.h>
 void tinyusb_net_lwip_transfer(void);
 
 int tinyusb_arch_init(void);
