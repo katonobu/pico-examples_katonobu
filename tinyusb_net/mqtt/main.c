@@ -1,30 +1,3 @@
-/* 
- * The MIT License (MIT)
- *
- * Copyright (c) 2020 Peter Lawrence
- *
- * influenced by lrndis https://github.com/fetisov/lrndis
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- */
-
 /*
 this appears as either a RNDIS or CDC-ECM USB virtual network adapter; the OS picks its preference
 
@@ -43,25 +16,18 @@ The smartphone may be artificially picky about which Ethernet MAC address to rec
 try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00 (clearing bit 1).
 */
 
-#include "bsp/board.h"
-#include "tusb.h"
-
-#include "dhserver.h"
-#include "dnserver.h"
-#include "lwip/init.h"
-#include "lwip/timeouts.h"
-#include "lwip/ip4_addr.h"
+/**
+ * Copyright (c) 2022 Raspberry Pi (Trading) Ltd.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+#include "lwip/apps/httpd.h"
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 
-void tinyusb_net_init(const ip_addr_t* ipaddr, const ip_addr_t* netmask, const ip_addr_t* gateway);
-void tinyusb_net_lwip_transfer(void);
+#include "tinyusb_net_lwip.h"
 
-/* network parameters of this MCU */
-static const ip_addr_t ipaddr  = IPADDR4_INIT_BYTES(192, 168, 7, 1);
-static const ip_addr_t netmask = IPADDR4_INIT_BYTES(255, 255, 255, 0);
-static const ip_addr_t gateway = IPADDR4_INIT_BYTES(0, 0, 0, 0);
-
+static bool terminate_req = false;
 
 int main(void)
 {
@@ -72,13 +38,10 @@ int main(void)
   printf("tinyusb_net-mqtt start.\n");
   printf("this is build at %s %s\n",__DATE__, __TIME__);
 
-  printf("IP:%d.%d.%d.%d\n", ip4_addr1_val(ipaddr), ip4_addr2_val(ipaddr), ip4_addr3_val(ipaddr), ip4_addr4_val(ipaddr));
-
-  tinyusb_net_init(&ipaddr, &netmask, &gateway);
-
+  tinyusb_arch_init();
   loop_count = 0;
   const uint32_t dot_count = 100 * 1000;
-  while (1)
+  while (terminate_req == false)
   {
     tinyusb_net_lwip_transfer();
     if ((loop_count % dot_count) == 0){
@@ -90,10 +53,10 @@ int main(void)
       break;
     }
   }
+  tinyusb_arch_deinit();
   printf("------------------------------------\n");
   printf("reboot...\n");
   reset_usb_boot(0,0);
   while(1);
   return 0;
 }
-// wget -q -O - 192.168.7.1 | diff index.html -
