@@ -62,6 +62,7 @@ if (EXISTS ${PICO_TINYUSB_PATH}/${TINYUSB_TEST_PATH})
             pico_stdlib
             pico_lwip
             pico_lwip_http            
+            pico_rand            
             tinyusb_device
             tinyusb_board
         )
