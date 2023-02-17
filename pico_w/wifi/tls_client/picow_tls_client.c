@@ -13,6 +13,7 @@
 #include "lwip/altcp_tcp.h"
 #include "lwip/altcp_tls.h"
 #include "lwip/dns.h"
+#include "pico/bootrom.h"
 
 #define TLS_CLIENT_SERVER        "worldtimeapi.org"
 #define TLS_CLIENT_HTTP_REQUEST  "GET /api/ip HTTP/1.1\r\n" \
@@ -239,6 +240,13 @@ int main() {
     sleep_ms(100);
 
     cyw43_arch_deinit();
+    printf("cyw43_arch_deinit\n");
+    printf("------------------------------------\n");
+    printf("reboot...\n");
+    reset_usb_boot(0,0);
+    while(1){
+        sleep_ms(100);
+    }
     return 0;
 }
 

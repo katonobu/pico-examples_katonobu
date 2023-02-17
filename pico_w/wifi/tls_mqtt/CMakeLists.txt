@@ -1,5 +1,5 @@
 add_executable(picow_tls_mqtt_background
-        mqtt_example.c
+        ${CMAKE_CURRENT_LIST_DIR}/../mqtt/mqtt_example.c
         )
 target_compile_definitions(picow_tls_mqtt_background PRIVATE
         WIFI_SSID=\"${WIFI_SSID}\"
