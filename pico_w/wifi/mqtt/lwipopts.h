@@ -6,4 +6,6 @@
 // counter measure for lwip-mqtt: sys_timeout: timeout != NULL, pool MEMP_SYS_TIMEOUT is empty
 #define MEMP_NUM_SYS_TIMEOUT            (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)
 
+#define LWIP_ALTCP               1
+
 #endif

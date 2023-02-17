@@ -18,4 +18,6 @@
 #define LWIP_TCPIP_CORE_LOCKING_INPUT 1
 #endif
 
+#define LWIP_ALTCP               1
+
 #endif
