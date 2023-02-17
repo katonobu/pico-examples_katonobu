@@ -45,6 +45,52 @@ typedef struct TLS_CLIENT_T_ {
 
 #if LWIP_ALTCP && LWIP_ALTCP_TLS
 static struct altcp_tls_config *tls_config = NULL;
+// https://github.com/ARMmbed/mbed-os/issues/4985
+// https://github.com/ARMmbed/mbed-os-example-tls/blob/5cca1f74a70855c17cf292f176d0c96db4980df9/tls-client/main.cpp#L48
+/**
+    * Debug callback for mbed TLS
+    * Just prints on the USB serial port
+    */
+static void my_debug(void *ctx, int level, const char *file, int line,
+                        const char *str)
+{
+    const char *p, *basename;
+    (void) ctx;
+
+    /* Extract basename from file */
+    for(p = basename = file; *p != '\0'; p++) {
+        if(*p == '/' || *p == '\\') {
+            basename = p + 1;
+        }
+    }
+
+    printf("%s:%04d: |%d| %s", basename, line, level, str);
+}
+
+/**
+    * Certificate verification callback for mbed TLS
+    * Here we only use it to display information on each cert in the chain
+    */
+static int my_verify(void *data, mbedtls_x509_crt *crt, int depth, uint32_t *flags)
+{
+    const uint32_t buf_size = 1024;
+    char buf[buf_size];
+    (void) data;
+
+    printf("\nVerifying certificate at depth %d:\n", depth);
+    mbedtls_x509_crt_info(buf, buf_size - 1, "  ", crt);
+    printf("%s", buf);
+
+    if (*flags == 0)
+        printf("No verification issue for this certificate\n");
+    else
+    {
+        mbedtls_x509_crt_verify_info(buf, buf_size, "  ! ", *flags);
+        printf("%s\n", buf);
+    }
+
+    return 0;
+}
 #endif
 
 enum httpc_stt_t {
@@ -211,6 +257,10 @@ static bool tls_client_open(const char *hostname, void *arg) {
 #if LWIP_ALTCP && LWIP_ALTCP_TLS
     /* Set SNI */
     mbedtls_ssl_set_hostname(altcp_tls_context(state->pcb), hostname);
+
+//    mbedtls_ssl_conf_verify(&(tls_config->conf), my_verify, NULL);
+//    mbedtls_ssl_conf_dbg(&(tls_config->conf), my_debug, NULL);
+//    mbedtls_debug_set_threshold(4);    
 #endif
 
     printf("resolving %s\n", hostname);
