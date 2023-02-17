@@ -86,7 +86,7 @@
 #define PPP_DEBUG                   LWIP_DBG_OFF
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
-#define TIMERS_DEBUG                LWIP_DBG_ON
+//#define TIMERS_DEBUG                LWIP_DBG_ON
 
-#define LWIP_DEBUG_TIMERNAMES       1
+//#define LWIP_DEBUG_TIMERNAMES       1
 #endif /* __LWIPOPTS_H__ */

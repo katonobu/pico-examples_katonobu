@@ -17,6 +17,7 @@ else()
     add_subdirectory(freertos)
     add_subdirectory(udp_beacon)
     add_subdirectory(mqtt)
+    add_subdirectory(httpc)
 
     if (NOT PICO_MBEDTLS_PATH)
         message("Skipping tls examples as PICO_MBEDTLS_PATH is not defined")
