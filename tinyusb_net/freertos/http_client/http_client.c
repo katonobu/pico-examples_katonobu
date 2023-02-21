@@ -25,6 +25,8 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "pico/bootrom.h"
 
 #include "lwip/apps/http_client.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include "tinyusb_net_lwip.h"
 
@@ -76,10 +78,8 @@ static err_t recv_fn(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
     return ERR_OK;
 }
 
-int main(void)
+int app_main(void)
 {
-  stdio_init_all();
-
   printf("tinyusb_net-httpc start.\n");
   printf("this is build at %s %s\n",__DATE__, __TIME__);
 
@@ -103,7 +103,8 @@ int main(void)
     while (http_done == false)
     {
       tinyusb_net_lwip_transfer();
-      sleep_ms(1);
+      vTaskDelay(1);
+
     }
   }
   tinyusb_arch_deinit();

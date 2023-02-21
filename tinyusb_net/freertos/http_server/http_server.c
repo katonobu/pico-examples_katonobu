@@ -25,6 +25,8 @@ try changing the first byte of tud_network_mac_address[] below from 0x02 to 0x00
 #include "pico/bootrom.h"
 
 #include "lwip/apps/httpd.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include "tinyusb_net_lwip.h"
 
@@ -53,10 +55,8 @@ httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len
   terminate_req = true;
 }
 
-int main(void)
+int app_main(void)
 {
-  stdio_init_all();
-
   printf("tinyusb_net-httpd start.\n");
   printf("this is build at %s %s\n",__DATE__, __TIME__);
 
@@ -66,7 +66,7 @@ int main(void)
   while (terminate_req == false)
   {
     tinyusb_net_lwip_transfer();
-    sleep_ms(1);
+    vTaskDelay(1);
   }
   tinyusb_arch_deinit();
   printf("------------------------------------\n");
